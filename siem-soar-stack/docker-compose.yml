@@ -1,0 +1,51 @@
+services:
+
+  opensearch:
+    image: opensearchproject/opensearch:2.9.0
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:2.9.0
+    container_name: dashboards
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "5601:5601"
+    depends_on:
+      - opensearch
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.10.2
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ../app:/var/log/app:ro
+    depends_on:
+      - opensearch
+
+  thehive:
+    image: strangebee/thehive:5.1.1
+    container_name: thehive
+    ports:
+      - "9000:9000"
+    depends_on:
+      - cortex
+
+  cortex:
+    image: thehiveproject/cortex:3.1.1
+    container_name: cortex
+    ports:
+      - "9001:9001"
+
+volumes:
+  opensearch_data:
