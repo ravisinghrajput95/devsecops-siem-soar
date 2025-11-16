@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
 
   opensearch:
@@ -9,6 +11,8 @@ services:
       - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
     ports:
       - "9200:9200"
+    networks:
+      - socnet
     volumes:
       - opensearch_data:/usr/share/opensearch/data
 
@@ -20,32 +24,61 @@ services:
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     ports:
       - "5601:5601"
+    networks:
+      - socnet
     depends_on:
       - opensearch
 
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:7.10.2
-    container_name: filebeat
-    user: root
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
+    networks:
+      - socnet
+    environment:
+      - CASSANDRA_CLUSTER_NAME=TheHiveCluster
     volumes:
-      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
-      - ../app:/var/log/app:ro
-    depends_on:
-      - opensearch
+      - cassandra_data:/var/lib/cassandra
 
   thehive:
     image: strangebee/thehive:5.1.1
     container_name: thehive
     ports:
       - "9000:9000"
+    networks:
+      - socnet
+    environment:
+      - CASSANDRA_HOSTS=cassandra
     depends_on:
-      - cortex
+      - cassandra
 
   cortex:
     image: thehiveproject/cortex:3.1.1
     container_name: cortex
     ports:
       - "9001:9001"
+    networks:
+      - socnet
+    volumes:
+      - cortex_data:/opt/cortex/data
+      - cortex_jobs:/opt/cortex/jobs
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.10.2
+    container_name: filebeat
+    user: root
+    networks:
+      - socnet
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ../app:/var/log/app:ro
+    depends_on:
+      - opensearch
+
+networks:
+  socnet:
 
 volumes:
   opensearch_data:
+  cassandra_data:
+  cortex_data:
+  cortex_jobs:
