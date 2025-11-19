@@ -1,121 +1,41 @@
 version: "3.8"
 
 services:
-
-  ### ------------------------
-  ###  SIEM: OpenSearch
-  ### ------------------------
   opensearch:
     image: opensearchproject/opensearch:2.9.0
-    container_name: opensearch
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
-      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
     ports:
       - "9200:9200"
     networks:
-      - socnet
-    volumes:
-      - opensearch_data:/usr/share/opensearch/data
+      - simple
 
   dashboards:
     image: opensearchproject/opensearch-dashboards:2.9.0
-    container_name: dashboards
     environment:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     ports:
       - "5601:5601"
-    networks:
-      - socnet
     depends_on:
       - opensearch
+    networks:
+      - simple
 
-  ### ------------------------
-  ###  SOAR: Elasticsearch for Cortex
-  ### ------------------------
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
-    container_name: es-cortex
-    environment:
-      - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+  n8n:
+    image: n8nio/n8n:latest
     ports:
-      - "9201:9200"
+      - "5678:5678"
     networks:
-      - socnet
-    volumes:
-      - es_cortex_data:/usr/share/elasticsearch/data
-
-  ### ------------------------
-  ###  SOAR: Cortex
-  ### ------------------------
-  cortex:
-    image: thehiveproject/cortex:3.1.1
-    container_name: cortex
-    ports:
-      - "9001:9001"
+      - simple
     environment:
-      - CORTEX_ELASTICSEARCH_URL=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
-    networks:
-      - socnet
+      - N8N_BASIC_AUTH_ACTIVE=false
     volumes:
-      - cortex_data:/opt/cortex/data
-      - cortex_jobs:/opt/cortex/jobs
-
-  ### ------------------------
-  ###  SOAR: Cassandra (required by TheHive)
-  ### ------------------------
-  cassandra:
-    image: cassandra:4.1
-    container_name: cassandra
-    environment:
-      - CASSANDRA_CLUSTER_NAME=TheHiveCluster
-    networks:
-      - socnet
-    volumes:
-      - cassandra_data:/var/lib/cassandra
-
-  ### ------------------------
-  ###  SOAR: TheHive
-  ### ------------------------
-  thehive:
-    image: strangebee/thehive:5.1.1
-    container_name: thehive
-    ports:
-      - "9000:9000"
-    environment:
-      - CASSANDRA_HOSTS=cassandra
-    networks:
-      - socnet
-    depends_on:
-      - cassandra
-      - cortex
-
-  ### ------------------------
-  ###  Optional: Filebeat (runtime logs)
-  ### ------------------------
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:7.10.2
-    container_name: filebeat
-    user: root
-    networks:
-      - socnet
-    volumes:
-      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - ../app:/var/log/app:ro
-    depends_on:
-      - opensearch
+      - n8n_data:/home/node/.n8n
 
 networks:
-  socnet:
+  simple:
 
 volumes:
-  opensearch_data:
-  es_cortex_data:
-  cassandra_data:
-  cortex_data:
-  cortex_jobs:
+  n8n_data:
